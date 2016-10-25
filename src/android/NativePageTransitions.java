@@ -34,6 +34,8 @@ public class NativePageTransitions extends CordovaPlugin {
   private static final String ACTION_FLIP = "flip";
   private static final String ACTION_DRAWER = "drawer";
 
+  private TransitionType pendingTransitionType;
+
   private ImageView imageView;
   private ImageView imageView2;
   private ImageView fixedImageViewTop;
@@ -67,6 +69,16 @@ public class NativePageTransitions extends CordovaPlugin {
       isCrosswalk = true;
     } catch (Exception ignore) {
     }
+  }
+
+  public Object onMessage(String id, Object data) {
+    if ("onPageFinished".equalsIgnoreCase(id)) {
+      TransitionType type = TransitionType.fromString(_action);
+      if (type != null) {
+        type.doTransition(this);
+      }
+    }
+    return super.onMessage(id, data);
   }
 
   // Helper to be compile-time compatible with both Cordova 3.x and 4.x.
@@ -116,16 +128,24 @@ public class NativePageTransitions extends CordovaPlugin {
 
     if (ACTION_EXECUTE_PENDING_TRANSITION.equalsIgnoreCase(action)) {
       delay = 0;
-      if (ACTION_SLIDE.equalsIgnoreCase(_action)) {
-        doSlideTransition();
-      } else if (ACTION_FADE.equalsIgnoreCase(_action)) {
-        doFadeTransition();
-      } else if (ACTION_FLIP.equalsIgnoreCase(_action)) {
-        doFlipTransition();
-      } else if (ACTION_DRAWER.equalsIgnoreCase(_action)) {
-        doDrawerTransition();
+      // if (ACTION_SLIDE.equalsIgnoreCase(_action)) {
+      //   doSlideTransition();
+      // } else if (ACTION_FADE.equalsIgnoreCase(_action)) {
+      //   doFadeTransition();
+      // } else if (ACTION_FLIP.equalsIgnoreCase(_action)) {
+      //   doFlipTransition();
+      // } else if (ACTION_DRAWER.equalsIgnoreCase(_action)) {
+      //   doDrawerTransition();
+      // }
+      // return true;
+      if (pendingTransitionType != null) {
+        pendingTransitionType.doTransition(this);
+        pendingTransitionType = null;
+        return true;
+      } else {
+        return false;
       }
-      return true;
+
     } else if (ACTION_CANCEL_PENDING_TRANSITION.equalsIgnoreCase(action)) {
       lastCallbackID = null;
       cordova.getActivity().runOnUiThread(new Runnable() {
@@ -195,16 +215,12 @@ public class NativePageTransitions extends CordovaPlugin {
             }
           }
 
-          if (href != null && !"null".equals(href)) {
-            if (!href.startsWith("#")) {
-              webView.loadUrlIntoView(webView.getUrl().substring(0, webView.getUrl().lastIndexOf('/')+1) + href, false);
-            }
-          }
-
-          if (delay > -1) {
-            doSlideTransition();
+          if (href != null && !"null".equals(href) && !href.startsWith("#") && href.contains(".html")) {
+               webView.loadUrlIntoView(webView.getUrl().substring(0, webView.getUrl().lastIndexOf('/')+1) + href, false);
+          } else if (shouldFireNow()) {
+              doSlideTransition();
           } else {
-            _callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK));
+            pendingTransitionType = TransitionType.SLIDE;
           }
         }
       });
@@ -251,16 +267,12 @@ public class NativePageTransitions extends CordovaPlugin {
             bringToFront(imageView2);
           }
 
-          if (href != null && !"null".equals(href)) {
-            if (!href.startsWith("#") && href.contains(".html")) {
-              webView.loadUrlIntoView(webView.getUrl().substring(0, webView.getUrl().lastIndexOf('/')+1) + href, false);
-            }
-          }
-
-          if (delay > -1) {
-            doDrawerTransition();
+          if (href != null && !"null".equals(href) && !href.startsWith("#") && href.contains(".html")) {
+               webView.loadUrlIntoView(webView.getUrl().substring(0, webView.getUrl().lastIndexOf('/')+1) + href, false);
+          } else if (shouldFireNow()) {
+              doDrawerTransition();
           } else {
-            _callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK));
+            pendingTransitionType = TransitionType.SLIDE;
           }
         }
       });
@@ -276,16 +288,12 @@ public class NativePageTransitions extends CordovaPlugin {
           imageView.setImageBitmap(getBitmap());
           bringToFront(imageView);
 
-          if (href != null && !"null".equals(href)) {
-            if (!href.startsWith("#") && href.contains(".html")) {
-              webView.loadUrlIntoView(webView.getUrl().substring(0, webView.getUrl().lastIndexOf('/')+1) + href, false);
-            }
-          }
-
-          if (delay > -1) {
-            doFadeTransition();
+          if (href != null && !"null".equals(href) && !href.startsWith("#") && href.contains(".html")) {
+               webView.loadUrlIntoView(webView.getUrl().substring(0, webView.getUrl().lastIndexOf('/')+1) + href, false);
+          } else if (shouldFireNow()) {
+              doFadeTransition();
           } else {
-            _callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK));
+            pendingTransitionType = TransitionType.SLIDE;
           }
         }
       });
@@ -311,10 +319,12 @@ public class NativePageTransitions extends CordovaPlugin {
             }
           }
 
-          if (delay > -1) {
-            doFlipTransition();
+          if (href != null && !"null".equals(href) && !href.startsWith("#") && href.contains(".html")) {
+               webView.loadUrlIntoView(webView.getUrl().substring(0, webView.getUrl().lastIndexOf('/')+1) + href, false);
+          } else if (shouldFireNow()) {
+              doFadeTransition();
           } else {
-            _callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK));
+            pendingTransitionType = TransitionType.SLIDE;
           }
         }
       });
@@ -322,7 +332,7 @@ public class NativePageTransitions extends CordovaPlugin {
     return true;
   }
 
-  private void doFadeTransition() {
+  public void doFadeTransition() {
     if (!calledFromJS || this._callbackContext.getCallbackId().equals(lastCallbackID)) {
       return;
     }
@@ -385,7 +395,7 @@ public class NativePageTransitions extends CordovaPlugin {
     }, delay);
   }
 
-  private void doFlipTransition() {
+  public void doFlipTransition() {
     if (!calledFromJS || this._callbackContext.getCallbackId().equals(lastCallbackID)) {
       return;
     }
@@ -459,7 +469,7 @@ public class NativePageTransitions extends CordovaPlugin {
     }, delay);
   }
 
-  private void doSlideTransition() {
+  public void doSlideTransition() {
     if (!calledFromJS || this._callbackContext.getCallbackId().equals(lastCallbackID)) {
       return;
     }
@@ -618,7 +628,7 @@ public class NativePageTransitions extends CordovaPlugin {
     }, delay);
   }
 
-  private void doDrawerTransition() {
+  public void doDrawerTransition() {
     if (!calledFromJS || this._callbackContext.getCallbackId().equals(lastCallbackID)) {
       return;
     }
@@ -759,6 +769,55 @@ public class NativePageTransitions extends CordovaPlugin {
       if (BEFORE_KITKAT && !isCrosswalk) {
         getView().setLayerType(View.LAYER_TYPE_SOFTWARE, null);
       }
+    }
+  }
+    private boolean shouldFireNow() {
+    return delay >= 0;
+  }
+
+  private enum TransitionType {
+    FLIP("flip") {
+      @Override
+      public void doTransition(NativePageTransitions plugin) {
+        plugin.doFlipTransition();
+      }
+    },
+    SLIDE("slide") {
+      @Override
+      public void doTransition(NativePageTransitions plugin) {
+        plugin.doSlideTransition();
+      }
+    },
+    FADE("fade") {
+      @Override
+      public void doTransition(NativePageTransitions plugin) {
+        plugin.doFadeTransition();
+      }
+    },
+    DRAWER("drawer") {
+      @Override
+      public void doTransition(NativePageTransitions plugin) {
+        plugin.doDrawerTransition();
+      }
+    };
+
+    private String code;
+
+    private TransitionType(String code) {
+      this.code = code;
+    }
+
+    public abstract void doTransition(NativePageTransitions plugin);
+
+    public static TransitionType fromString(String text) {
+      if (text != null) {
+        for (TransitionType type : TransitionType.values()) {
+          if (text.equalsIgnoreCase(type.code)) {
+            return type;
+          }
+        }
+      }
+      return null;
     }
   }
 }
