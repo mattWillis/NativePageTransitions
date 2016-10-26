@@ -174,7 +174,7 @@ function setupDelayOptions(opts, whichOS) {
       opts.androiddelay = -1;
     }
   }
-  if (whichOS.ios && (opts.iosdelay == undefined || opts.iosdelay == "null") {
+  if (whichOS.ios && (opts.iosdelay == undefined || opts.iosdelay == "null")) {
     opts.iosdelay = globalOptions.iosdelay;
   }
   if (whichOS.winphone && (opts.winphonedelay == undefined || opts.winphonedelay == "null")) {
